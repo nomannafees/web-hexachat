@@ -43,7 +43,7 @@ export default defineConfig({
       // Lets you try the service worker and push with `npm run dev` (localhost counts as secure).
       devOptions: {
         enabled: true,
-        type: 'classic',
+        type: 'module',
         navigateFallback: 'index.html',
       },
     }),
