@@ -1,7 +1,7 @@
 
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://web-hexachat.onrender.com";
+const SOCKET_URL = "https://web-hexachat.onrender.com";
 
 let socket;
 
