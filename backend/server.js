@@ -26,7 +26,26 @@ checkEnv(); // stops here with a clear message if the settings are wrong
 const app = express();
 const httpServer = createServer(app);
 
-const clientUrl = process.env.CLIENT_URL || "https://hexachat.hexalogicx.com";
+const clientUrls = [
+  process.env.CLIENT_URL,
+  ...(process.env.ALLOWED_ORIGINS || "").split(","),
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+].map((value) => value?.trim()).filter(Boolean);
+
+const allowedOrigins = [...new Set(clientUrls)];
+const corsOriginValidator = (origin, callback) => {
+  if (!origin || allowedOrigins.includes(origin)) {
+    callback(null, true);
+    return;
+  }
+
+  callback(new Error("Not allowed by CORS"));
+};
 
 // Behind a reverse proxy (Nginx, Render, Railway...) set TRUST_PROXY=1 in .env so
 // rate limits see each visitor's real IP. Leave it unset when there is no proxy.
@@ -39,7 +58,10 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 // Middleware
 app.use(
   cors({
-    origin: clientUrl,
+    origin: corsOriginValidator,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -66,7 +88,9 @@ app.use("/api", apiLimiter);              // under app.use("/api/messages", mess
 // Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: clientUrl,
+    origin: corsOriginValidator,
+    credentials: true,
+    methods: ["GET", "POST"],
   },
 });
 
@@ -119,7 +143,44 @@ app.use((error, req, res, next) => {
 
 
 // MongoDB connection and server startup
-const PORT = process.env.PORT || 5000;
+const preferredPorts = [
+  Number.parseInt(process.env.PORT || "5000", 10),
+  5001,
+  5002,
+  5003,
+  5004,
+  5005,
+  5006,
+  5007,
+  5008,
+  5009,
+  5010,
+];
+
+function startListening(portIndex = 0) {
+  const port = preferredPorts[portIndex];
+
+  httpServer.once("error", (error) => {
+    if (error.code === "EADDRINUSE" && portIndex < preferredPorts.length - 1) {
+      const nextPort = preferredPorts[portIndex + 1];
+      console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
+      startListening(portIndex + 1);
+      return;
+    }
+
+    console.error(`Failed to start server on port ${port}:`, error.message);
+    process.exit(1);
+  });
+
+  httpServer.listen(port, "0.0.0.0", () => {
+    process.env.PORT = String(port);
+    console.log(`Server running at http://localhost:${port}`);
+
+    // Status updates last 24 hours: remove expired ones (and their files) now and every 15 minutes.
+    cleanupExpiredStatuses();
+    setInterval(cleanupExpiredStatuses, 15 * 60 * 1000);
+  });
+}
 
 async function startServer() {
   try {
@@ -130,16 +191,7 @@ async function startServer() {
     await resetPresence();
 
     console.log("MongoDB connected successfully");
-
-    httpServer.listen(PORT,  () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-    });
-
-    
-    // Status updates last 24 hours: remove expired ones (and their files) now and every 15 minutes.
-    cleanupExpiredStatuses();
-    setInterval(cleanupExpiredStatuses, 15 * 60 * 1000);
-    
+    startListening();
   } catch (error) {
     console.error("Failed to start server:", error.message);
     process.exit(1);
