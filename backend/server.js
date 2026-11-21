@@ -20,8 +20,10 @@ import pushRoutes from "./routes/pushRoutes.js";
 import { cleanupExpiredStatuses } from "./controllers/statusController.js";
 import { apiLimiter } from "./middleware/rateLimiters.js";
 import { checkEnv } from "./utils/checkEnv.js";
+import { resolveEnv, isProduction } from "./utils/resolveEnv.js";
 
 dotenv.config();
+const appEnv = resolveEnv(); // picks the local or production URLs
 checkEnv(); // stops here with a clear message if the settings are wrong
 const app = express();
 const httpServer = createServer(app);
@@ -33,8 +35,18 @@ const clientUrls = [
 ].map((value) => value?.trim()).filter(Boolean);
 
 const allowedOrigins = [...new Set(clientUrls)];
+
+// While developing, also accept the app opened from localhost or from this
+// computer's network address (for example a phone on the same Wi-Fi).
+const LOCAL_ORIGIN =
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
+
 const corsOriginValidator = (origin, callback) => {
-  if (!origin || allowedOrigins.includes(origin)) {
+  if (
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    (!isProduction() && LOCAL_ORIGIN.test(origin))
+  ) {
     callback(null, true);
     return;
   }
@@ -169,7 +181,8 @@ function startListening(portIndex = 0) {
 
   httpServer.listen(port, "0.0.0.0", () => {
     process.env.PORT = String(port);
-    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Server running at http://localhost:${port} (${appEnv} mode)`);
+    console.log(`Allowing browser requests from: ${allowedOrigins.join(", ")}`);
 
     // Status updates last 24 hours: remove expired ones (and their files) now and every 15 minutes.
     cleanupExpiredStatuses();

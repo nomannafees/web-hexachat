@@ -1,7 +1,12 @@
+import { copyFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from 'vite-plugin-pwa'
+
+const root = dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -47,5 +52,12 @@ export default defineConfig({
         navigateFallback: 'index.html',
       },
     }),
+    {
+      name: 'copy-apache-htaccess',
+      apply: 'build',
+      closeBundle() {
+        copyFileSync(resolve(root, 'public/.htaccess'), resolve(root, 'dist/.htaccess'))
+      },
+    },
   ],
 })
