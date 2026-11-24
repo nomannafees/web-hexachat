@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-
+import registerAssistantHandlers from "./assistantHandlers.js";
 import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
@@ -505,7 +505,8 @@ export default function initializeSocket(io) {
         setTimeout(() => markOffline(io, userId), PRESENCE_GRACE_MS)
       );
     });
-registerCallHandlers(io, socket);
+      registerCallHandlers(io, socket);
+      registerAssistantHandlers(io, socket);
     // Handlers above are registered first so no early event is lost
     // while the presence queries run.
     announcePresence(io, socket, userId, becameOnline);

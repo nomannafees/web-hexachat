@@ -26,7 +26,7 @@ import { showNotification, isAppActive } from "../../lib/notifications";
 import { isPushActive, syncPushSubscription } from "../../lib/push";
 import { maybeAskToEnableNotifications } from "../../lib/pushFlows";
 import useAppState from "../hooks/useAppState";
-
+import AssistantWidget from "./assistant/AssistantWidget";
 function getCurrentUser() {
   try {
     const storedUser =
@@ -1130,7 +1130,7 @@ const getUserAvatar = (userId) =>
         </div>
 
                {/* Phone: only visible while a chat is open. */}
-        <main className={`min-w-0 flex-1 ${showChatOnMobile ? "" : "max-sm:hidden"}`}>
+        <main className={` relative min-w-0 flex-1 ${showChatOnMobile ? "" : "max-sm:hidden"}`}>
         {view === "calls" ? (
             <CallsMain
               call={selectedCall}
@@ -1156,7 +1156,7 @@ const getUserAvatar = (userId) =>
                                     typingText={selectedChat ? typingTexts[selectedChat.id] : undefined}
           />
            )}
-
+          {view !== "calls" && view !== "status" && <AssistantWidget />}
         </main>
 
       </div>

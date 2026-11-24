@@ -36,15 +36,7 @@ export function CommunitiesIcon({ size = 22 }) {
 /* Meta AI keeps its fixed brand colors on purpose */
 const PETAL_COLORS = ["#a855f7", "#8b5cf6", "#6366f1", "#3b82f6", "#d946ef", "#ec4899"];
 
-function MetaAiIcon({ size = 22 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
-      {PETAL_COLORS.map((color, i) => (
-        <ellipse key={color} cx="12" cy="6.2" rx="2.3" ry="3.3" fill={color} transform={`rotate(${i * 60} 12 12)`} />
-      ))}
-    </svg>
-  );
-}
+
 
 // countKey: which real number from useNavCounts() the badge shows.
 const NAV_ITEMS = [
@@ -86,9 +78,7 @@ export default function NavigationRail({ profileImage }) {
 
         <div className="my-2 h-px w-8 bg-[var(--wa-rail-divider)]" />
 
-        <NavLink to="/meta-ai" aria-label="Meta AI" title="Meta AI" className={({ isActive }) => itemClass(isActive)}>
-          <MetaAiIcon size={22} />
-        </NavLink>
+        
       </nav>
 
       <div className="flex flex-col items-center gap-1.5">
