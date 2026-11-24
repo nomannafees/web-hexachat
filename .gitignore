@@ -5,7 +5,6 @@
 
 # Dependencies and build output
 node_modules/
-dist/
 dist-ssr/
 
 # Files users upload while the app runs (private chats, status photos, avatars)
