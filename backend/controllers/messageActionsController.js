@@ -2,7 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import mongoose from "mongoose";
-
+import { isGridKey, deleteFile, duplicateFile } from "../utils/gridStore.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { REPLY_POPULATE, serializeMessage } from "../utils/serializeMessage.js";
@@ -34,7 +34,9 @@ function storagePath(storageKey) {
 
 function removeFiles(paths) {
   return Promise.all(
-    paths.map((p) => fs.promises.unlink(p).catch(() => {}))
+    paths.map((p) =>
+      isGridKey(p) ? deleteFile(p) : fs.promises.unlink(p).catch(() => {})
+    )
   );
 }
 
@@ -80,7 +82,7 @@ async function loadMessageContext(req, res) {
   }
 
     // Group notices ("Ali added Sara") can't be reacted to, starred, forwarded or deleted.
-  if (message.type === "system") {
+  if (message.type === "system" || message.type === "call") {
     fail(res, 400, "This action isn't available for group notifications.");
     return null;
   }
@@ -288,9 +290,11 @@ export async function deleteMessage(req, res) {
       "+attachments.storageKey"
     );
 
-    const filePaths = (withFiles?.attachments || [])
-      .map((file) => storagePath(file.storageKey))
-      .filter(Boolean);
+ const filePaths = (withFiles?.attachments || [])
+  .map((file) =>
+    isGridKey(file.storageKey) ? file.storageKey : storagePath(file.storageKey)
+  )
+  .filter(Boolean);
 
     await Message.updateOne(
       { _id: message._id },
@@ -329,6 +333,19 @@ async function copyAttachments(attachments) {
 
   try {
     for (const file of attachments) {
+
+      if (isGridKey(file.storageKey)) {
+  const storageKey = await duplicateFile(file.storageKey, file.originalName, file.mimeType);
+  created.push(storageKey);
+  copied.push({
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    size: file.size,
+    storageKey,
+  });
+  continue;
+}
+
       const source = storagePath(file.storageKey);
 
       if (!source) throw new Error("Invalid attachment path.");
