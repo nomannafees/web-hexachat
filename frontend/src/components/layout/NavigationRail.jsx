@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
-import { Images, MessageCircleMore, Phone } from "lucide-react";
+import { Images, Phone } from "lucide-react";
+import AssistantIcon from "../assistant/AssistantIcon";
 import { useNavCounts } from "../../context/NavCountsContext";
 /* ---------- Icons (exported for the mobile bottom nav) ---------- */
 export function ChatFilledIcon({ size = 22 }) {
@@ -43,8 +44,8 @@ const NAV_ITEMS = [
   { to: "/app", label: "Chats", end: true, icon: ChatFilledIcon, countKey: "chats" },
   { to: "/app/calls", label: "Calls", icon: Phone, countKey: "calls" },
     { to: "/app/status", label: "Status", icon: StatusIcon },
-  { to: "/channels", label: "Channels", icon: MessageCircleMore },
-  { to: "/communities", label: "Communities", icon: CommunitiesIcon, countKey: "groups" },
+  { to: "/app/groups", label: "Groups", icon: CommunitiesIcon, countKey: "groups" },
+  { to: "/app/assistant", label: "Assistant", icon: AssistantIcon },
 ];
 
 const itemClass = (isActive) =>

@@ -21,6 +21,7 @@ import { cleanupExpiredStatuses } from "./controllers/statusController.js";
 import { apiLimiter } from "./middleware/rateLimiters.js";
 import { checkEnv } from "./utils/checkEnv.js";
 import { resolveEnv, isProduction } from "./utils/resolveEnv.js";
+import { streamFile, GRIDFS_PREFIX } from "./utils/gridStore.js";
 
 dotenv.config();
 const appEnv = resolveEnv(); // picks the local or production URLs
@@ -76,6 +77,27 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 
 // Public profile pictures only. Chat attachments stay private.
+
+const AVATAR_TYPES = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+app.get("/uploads/avatars/:file", (req, res, next) => {
+  const match = /^([0-9a-f]{24})\.(jpg|png|webp)$/.exec(req.params.file);
+  if (!match) return next(); // old disk files fall through to express.static below
+
+  const stream = streamFile(`${GRIDFS_PREFIX}${match[1]}`);
+  stream.once("file", () =>
+    res.set({
+      "Content-Type": AVATAR_TYPES[match[2]],
+      "Cache-Control": "public, max-age=604800, immutable",
+    })
+  );
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(404).end();
+    else res.destroy();
+  });
+  stream.pipe(res);
+});
+
 app.use(
   "/uploads/avatars",
   express.static(avatarDirectory, { maxAge: "7d", immutable: true })

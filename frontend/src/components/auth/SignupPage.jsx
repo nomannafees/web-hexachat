@@ -10,7 +10,11 @@ import AuthAlert from "./AuthAlert";
 import AuthForm from "./AuthForm";
 import AuthFooter from "./AuthFooter";
 import { otpInputClass, primaryButtonClass } from "./authStyles";
+import useFieldAvailability from "./useFieldAvailability";
+import { validateField } from "./signupValidation";
+
 const INITIAL_FORM = {
+  name: "",
   username: "",
   email: "",
   phone: "",
@@ -33,8 +37,47 @@ export default function SignupPage() {
   const [isResending, setIsResending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+    // Ask the server (after a short pause) whether these are already taken.
+  // A check only runs once the value has no format error.
+  const usernameCheck = useFieldAvailability(
+    "username",
+    formData.username,
+    !validateField("username", formData.username)
+  );
+  const emailCheck = useFieldAvailability(
+    "email",
+    formData.email,
+    !validateField("email", formData.email)
+  );
+  const phoneCheck = useFieldAvailability(
+    "phone",
+    formData.phone,
+    !validateField("phone", formData.phone)
+  );
+
+  // What the inputs actually display: format/server errors first, then "already taken".
+  const shownErrors = {
+    ...errors,
+    username: errors.username || usernameCheck.taken,
+    email: errors.email || emailCheck.taken,
+    phone: errors.phone || phoneCheck.taken,
+  };
+
+  const hints = {
+    username: usernameCheck.checking
+      ? "Checking availability..."
+      : usernameCheck.available
+        ? "This username is available."
+        : "",
+    email: emailCheck.checking ? "Checking availability..." : "",
+    phone: phoneCheck.checking ? "Checking availability..." : "",
+  };
+
   const handleChange = (event) => {
-    const { name, value } = event.target;
+
+        const { name } = event.target;
+    const value =
+      name === "username" ? event.target.value.toLowerCase() : event.target.value;
 
     setFormData((previous) => ({
       ...previous,
@@ -43,7 +86,7 @@ export default function SignupPage() {
 
     setErrors((previous) => ({
       ...previous,
-      [name]: "",
+        [name]: validateField(name, value),
     }));
 
     setFormError("");
@@ -53,29 +96,21 @@ export default function SignupPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const nextErrors = {};
-
-    if (!formData.username.trim()) {
-      nextErrors.username = "Username is required.";
-    } else if (formData.username.trim().length < 3) {
-      nextErrors.username = "Username must contain at least 3 characters.";
-    }
+   
 
     const email = formData.email.trim();
 
-    if (!email) {
-      nextErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      nextErrors.email = "Enter a valid email address.";
+    const nextErrors = {};
+
+    for (const field of ["name", "username", "email", "phone", "password"]) {
+      const message = validateField(field, formData[field]);
+      if (message) nextErrors[field] = message;
     }
 
-    if (!formData.phone.trim()) {
-      nextErrors.phone = "Phone number is required.";
-    }
-
-    if (formData.password.length < 8) {
-      nextErrors.password = "Password must contain at least 8 characters.";
-    }
+    // Already known to be taken from the live check.
+    if (!nextErrors.username && usernameCheck.taken) nextErrors.username = usernameCheck.taken;
+    if (!nextErrors.email && emailCheck.taken) nextErrors.email = emailCheck.taken;
+    if (!nextErrors.phone && phoneCheck.taken) nextErrors.phone = phoneCheck.taken;
 
     setErrors(nextErrors);
 
@@ -89,6 +124,7 @@ export default function SignupPage() {
       setSuccessMessage("");
 
       const response = await api.post("/auth/register", {
+         name: formData.name.trim(),
         username: formData.username.trim(),
         email,
         phone: formData.phone.trim(),
@@ -109,11 +145,18 @@ export default function SignupPage() {
           "Verification code sent. Check your email inbox."
       );
     } catch (error) {
-      setFormError(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to start registration. Please try again."
-      );
+            const fieldErrors = error.response?.data?.errors;
+
+      if (fieldErrors && typeof fieldErrors === "object") {
+        // The server told us exactly which fields are wrong: show them under the inputs.
+        setErrors((previous) => ({ ...previous, ...fieldErrors }));
+      } else {
+        setFormError(
+          error.response?.data?.message ||
+            error.message ||
+            "Unable to start registration. Please try again."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -246,7 +289,8 @@ export default function SignupPage() {
           <AuthForm
             mode="signup"
             formData={formData}
-            errors={errors}
+              errors={shownErrors}
+            hints={hints}
             onChange={handleChange}
             onSubmit={handleSubmit}
             stayLoggedIn={false}

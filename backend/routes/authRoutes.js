@@ -12,6 +12,7 @@ import {
   updateProfilePicture,
   updateProfile,
   regenerateChatPin,
+  checkAvailability
 } from "../controllers/authController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -22,11 +23,13 @@ import {
   otpResendLimiter,
   forgotPasswordLimiter,
   resetPasswordLimiter,
+  availabilityLimiter
 } from "../middleware/rateLimiters.js";
 
 const router = express.Router();
 
 router.post("/register", registerLimiter, register);
+router.get("/check-availability", availabilityLimiter, checkAvailability);
 router.post("/verify-otp", otpVerifyLimiter, verifyOtp);
 router.post("/resend-otp", otpResendLimiter, resendOtp);
 router.post("/login", loginLimiter, login);

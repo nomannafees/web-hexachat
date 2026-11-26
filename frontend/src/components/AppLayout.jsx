@@ -27,6 +27,9 @@ import { isPushActive, syncPushSubscription } from "../../lib/push";
 import { maybeAskToEnableNotifications } from "../../lib/pushFlows";
 import useAppState from "../hooks/useAppState";
 import AssistantWidget from "./assistant/AssistantWidget";
+import AssistantMain from "./assistant/AssistantMain";
+import AssistantSidebar from "./assistant/AssistantSidebar";
+import GroupsSidebar from "./sidebar/GroupsSidebar";
 function getCurrentUser() {
   try {
     const storedUser =
@@ -205,18 +208,23 @@ export default function AppLayout() {
     const { refreshNavCounts } = useNavCounts();
   const location = useLocation();
   const navigate = useNavigate();
-    const view = location.pathname.startsWith("/app/calls")
+      const view = location.pathname.startsWith("/app/calls")
     ? "calls"
     : location.pathname.startsWith("/app/status")
       ? "status"
-      : "chats";
-  
+      : location.pathname.startsWith("/app/groups")
+        ? "groups"
+        : location.pathname.startsWith("/app/assistant")
+          ? "assistant"
+          : "chats";
   // Phone: one screen at a time. The open chat lives in the address (/app/chat/<id>),
   // so the phone's Back button / swipe-back returns to the chat list.
   const isMobile = useIsMobile();
   const chatRouteId =
     matchPath("/app/chat/:chatId", location.pathname)?.params.chatId || null;
   const showChatOnMobile = isMobile && view === "chats" && Boolean(chatRouteId);
+    // Phone: the right-hand side is shown for an open chat, and for the assistant page.
+  const showMainOnMobile = showChatOnMobile || (isMobile && view === "assistant");
 
   // Which chat is really open right now (phone: from the address, computer: from the click).
   const openChatId = isMobile
@@ -1049,7 +1057,7 @@ const getUserAvatar = (userId) =>
                {/* Phone: full-width list, hidden while a chat is open. */}
         <div
           className={`relative flex shrink-0 flex-col max-sm:w-full max-sm:min-w-0 sm:w-[410px] sm:min-w-[340px] ${
-            showChatOnMobile ? "max-sm:hidden" : ""
+            showMainOnMobile ? "max-sm:hidden" : ""
           }`}
         >
           {view === "calls" ? (
@@ -1062,7 +1070,21 @@ const getUserAvatar = (userId) =>
             />
           ) : view === "status" ? (
             <StatusSidebar statuses={statuses} />
-          ) : (
+          ) : view === "groups" ? (
+            <GroupsSidebar
+              chats={chatsWithTyping}
+              selectedChatId={isMobile ? null : selectedChatId}
+              onSelectChat={handleSelectChat}
+              onNewGroup={() => {
+                setActionError("");
+                setIsNewGroup(true);
+                navigate("/app");
+              }}
+            />
+          ) : view === "assistant" ? (
+            <AssistantSidebar />
+          ) : 
+          (
           <Sidebar
                         chats={chatsWithTyping}
                         selectedChatId={isMobile ? null : selectedChatId}
@@ -1130,7 +1152,7 @@ const getUserAvatar = (userId) =>
         </div>
 
                {/* Phone: only visible while a chat is open. */}
-        <main className={` relative min-w-0 flex-1 ${showChatOnMobile ? "" : "max-sm:hidden"}`}>
+        <main className={` relative min-w-0 flex-1 ${showMainOnMobile ? "" : "max-sm:hidden"}`}>
         {view === "calls" ? (
             <CallsMain
               call={selectedCall}
@@ -1141,9 +1163,11 @@ const getUserAvatar = (userId) =>
             />
                       ) : view === "status" ? (
             <StatusMain />
-          ) : (
+          ): view === "assistant" ? (
+            <AssistantMain onBack={() => navigate("/app")} />
+          )  : (
           <ChatWindow
-            chat={selectedChat}
+             chat={view === "groups" && selectedChat?.type !== "group" ? null : selectedChat}
             chats={chats}
             onConversationRead={handleConversationRead}
             onBack={handleBack}

@@ -1,4 +1,4 @@
-import { ArrowRight, Lock, Mail, Phone, RefreshCw, User } from "lucide-react";
+import { ArrowRight, AtSign, Lock, Mail, Phone, RefreshCw, User, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import AuthInput from "./AuthInput";
 import { primaryButtonClass } from "./authStyles";
@@ -7,6 +7,7 @@ export default function AuthForm({
   mode,
   formData,
   errors,
+  hints = {},
   onChange,
   onSubmit,
   stayLoggedIn,
@@ -17,15 +18,31 @@ export default function AuthForm({
 
   return (
     <form onSubmit={onSubmit} noValidate>
+           {isSignup && (
+        <AuthInput
+          id="name"
+          label="Full name"
+          name="name"
+          icon={UserRound}
+          placeholder="Enter your name"
+          value={formData.name}
+          onChange={onChange}
+          error={errors.name}
+          autoComplete="name"
+          disabled={isSubmitting}
+        />
+      )}
+
       <AuthInput
         id="username"
         label="Username"
         name="username"
-        icon={User}
+        icon={isSignup ? AtSign : User}
         placeholder="Enter your username"
         value={formData.username}
         onChange={onChange}
         error={errors.username}
+        hint={hints.username}
         autoComplete="username"
         disabled={isSubmitting}
       />
@@ -101,11 +118,11 @@ export default function AuthForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`${primaryButtonClass} ${isSignup ? "mt-2" : ""}`}
+        className={`${primaryButtonClass} ${isSignup ? "mt-2" : ""} mt-5` }
       >
         {isSubmitting ? (
           <>
-            <RefreshCw size={18} className="animate-spin" />
+            <RefreshCw size={18} className="animate-spin " />
             {isSignup ? "Creating account..." : "Signing in..."}
           </>
         ) : (

@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
+import { putBuffer, deleteFile, GRIDFS_PREFIX } from "./gridStore.js";
 
 // Profile pictures are public, so they live in their own folder.
 // (Chat attachments stay private behind the authenticated download route.)
@@ -24,6 +24,7 @@ const SIGNATURES = {
 
 // Only ever delete files we created ourselves (blocks path traversal).
 const OUR_FILENAME = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+const GRID_FILENAME = /^[0-9a-f]{24}\.(jpg|png|webp)$/;  // new files in MongoDB
 
 // Public address of this server, used to build the stored image URL.
 export function getPublicBaseUrl(req) {
@@ -41,12 +42,11 @@ export async function saveAvatar(buffer, imageType, baseUrl) {
     throw error;
   }
 
-  await fs.mkdir(avatarDirectory, { recursive: true });
+   const extension = EXTENSIONS[type];
+  const key = await putBuffer(buffer, `avatar.${extension}`, `image/${type}`);
+  const id = key.slice(GRIDFS_PREFIX.length);
 
-  const filename = `${crypto.randomUUID()}.${EXTENSIONS[type]}`;
-  await fs.writeFile(path.join(avatarDirectory, filename), buffer);
-
-  return `${baseUrl}/uploads/avatars/${filename}`;
+  return `${baseUrl}/uploads/avatars/${id}.${extension}`;
 }
 
 // Removes the previous avatar file. Old base64 values and other URLs are ignored.
@@ -55,6 +55,11 @@ export async function deleteAvatarByUrl(url) {
     if (typeof url !== "string" || !url.includes("/uploads/avatars/")) return;
 
     const filename = path.basename(new URL(url).pathname);
+        // New avatars live in MongoDB.
+    if (GRID_FILENAME.test(filename)) {
+      await deleteFile(`${GRIDFS_PREFIX}${filename.split(".")[0]}`);
+      return;
+    }
     if (!OUR_FILENAME.test(filename)) return;
 
     await fs.unlink(path.join(avatarDirectory, filename));

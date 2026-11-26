@@ -50,6 +50,13 @@ export const registerLimiter = makeLimiter({
   message: "Too many sign-up attempts. Please try again later.",
 });
 
+// Live "is this taken?" checks while typing on the sign-up form.
+export const availabilityLimiter = makeLimiter({
+  windowMs: MINUTE,
+  limit: 40,
+  message: "Too many checks. Please wait a moment.",
+});
+
 export const otpVerifyLimiter = makeLimiter({
   windowMs: 15 * MINUTE,
   limit: 20,

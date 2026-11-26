@@ -10,6 +10,7 @@ export default function AuthInput({
   value,
   onChange,
   error,
+  hint = "",
   autoComplete,
   icon: Icon,
   labelAction = null,
@@ -50,7 +51,7 @@ export default function AuthInput({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`h-12 w-full rounded-xl border bg-[var(--wa-auth-input-bg)] text-[15px] text-[color:var(--wa-text-primary)] outline-none transition placeholder:text-[color:var(--wa-search-placeholder)] focus:bg-[var(--wa-auth-card-bg)] focus:ring-4 disabled:opacity-60 ${
+          className={`h-11 w-full rounded-xl border bg-[var(--wa-auth-input-bg)] text-[15px] text-[color:var(--wa-text-primary)] outline-none transition placeholder:text-[color:var(--wa-search-placeholder)] focus:bg-[var(--wa-auth-card-bg)] focus:ring-4 disabled:opacity-60 ${
             Icon ? "pl-11" : "pl-3.5"
           } ${isPassword ? "pr-11" : "pr-3.5"} ${
             error
@@ -78,6 +79,11 @@ export default function AuthInput({
         >
           <AlertCircle size={13} className="shrink-0" />
           {error}
+        </p>
+      )}
+            {!error && hint && (
+        <p className="mt-1.5 text-[12.5px] text-[color:var(--wa-text-secondary)]">
+          {hint}
         </p>
       )}
     </div>

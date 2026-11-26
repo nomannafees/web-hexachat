@@ -63,6 +63,7 @@ function createOtp() {
 function publicUser(user) {
   return {
     id: user._id,
+    name: user.name || "",
     username: user.username,
     email: user.email,
     phone: user.phone,
@@ -72,87 +73,156 @@ function publicUser(user) {
   };
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Returns { fieldName: "message" } for every invalid field (empty = all good).
+function validateRegistration({ name, username, email, phone, password }) {
+  const errors = {};
+
+  if (!name) errors.name = "Name is required.";
+  
+  else if (name.length > 30) errors.name = "Name cannot exceed 30 characters.";
+
+  if (!username) errors.username = "Username is required.";
+   else if (/\s/.test(username)) errors.username = "Username cannot contain spaces.";
+  else if (username.length < 3)
+    errors.username = "Username must contain at least 3 characters.";
+  else if (username.length > 30)
+    errors.username = "Username cannot exceed 30 characters.";
+
+  if (!email) errors.email = "Email is required.";
+  else if (!EMAIL_REGEX.test(email))
+    errors.email = "Enter a valid email address.";
+
+  if (!phone) errors.phone = "Phone number is required.";
+    else if (phone.replace(/\D/g, "").length < 7)
+    errors.phone = "Enter a valid phone number.";
+
+  if (!password) errors.password = "Password is required.";
+  else if (password.length < 8)
+    errors.password = "Password must contain at least 8 characters.";
+
+  return errors;
+}
+
+const TAKEN_MESSAGES = {
+  username: "This username is already taken.",
+  email: "An account with this email already exists.",
+  phone: "An account with this phone number already exists.",
+};
+
+// Checks only the fields you pass in. Returns { field: "message" } for the taken ones.
+async function findTakenFields({ username, email, phone }) {
+  const conditions = [];
+  if (username) conditions.push({ username });
+  if (email) conditions.push({ email });
+  if (phone) conditions.push({ phone });
+  if (conditions.length === 0) return {};
+
+  const taken = {};
+
+  // 1) Existing accounts
+  const users = await User.find({ $or: conditions })
+    .select("username email phone")
+    .lean();
+
+  for (const user of users) {
+    if (username && user.username === username) taken.username = TAKEN_MESSAGES.username;
+    if (email && user.email === email) taken.email = TAKEN_MESSAGES.email;
+    if (phone && user.phone === phone) taken.phone = TAKEN_MESSAGES.phone;
+  }
+
+  // 2) Username/phone reserved by someone else's unfinished signup
+  const pendingConditions = conditions.filter((c) => !c.email);
+
+  if (pendingConditions.length > 0) {
+    const query = { $or: pendingConditions };
+    if (email) query.email = { $ne: email }; // your own earlier attempt doesn't count
+
+    const pendings = await PendingRegistration.find(query)
+      .select("username phone")
+      .lean();
+
+    for (const pending of pendings) {
+      if (username && pending.username === username) taken.username = TAKEN_MESSAGES.username;
+      if (phone && pending.phone === phone) taken.phone = TAKEN_MESSAGES.phone;
+    }
+  }
+
+  return taken;
+}
+
+// GET /api/auth/check-availability?field=username&value=zain
+export async function checkAvailability(req, res) {
+  try {
+    const { field } = req.query;
+    let value = typeof req.query.value === "string" ? req.query.value.trim() : "";
+
+    if (!["username", "email", "phone"].includes(field) || !value || value.length > 100) {
+      return res.status(400).json({ success: false, message: "Invalid request." });
+    }
+
+    if (field === "email" || field === "username") value = value.toLowerCase();
+
+    const taken = await findTakenFields({ [field]: value });
+
+    return res.status(200).json({
+      success: true,
+      available: !taken[field],
+      message: taken[field] || "",
+    });
+  } catch (error) {
+    console.error("Availability check error:", error);
+    return res.status(500).json({ success: false, message: "Unable to check right now." });
+  }
+}
+
 // POST /api/auth/register
 export async function register(req, res) {
   try {
-    const { username, email, phone, password } = req.body;
+        const { name, username, email, phone, password } = req.body;
 
-    if (
-      typeof username !== "string" ||
-      typeof email !== "string" ||
-      typeof phone !== "string" ||
-      typeof password !== "string" ||
-      !username.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !password
-    ) {
+    if ([name, username, email, phone, password].some((v) => typeof v !== "string")) {
       return res.status(400).json({
         success: false,
         message: "All fields are required.",
       });
     }
 
-    const normalizedUsername = username.trim();
+    const normalizedName = name.trim();
+    const normalizedUsername = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = phone.trim();
 
-    if (
-      normalizedUsername.length < 3 ||
-      normalizedUsername.length > 30
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Username must be between 3 and 30 characters.",
-      });
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address.",
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must contain at least 8 characters.",
-      });
-    }
-
-    // Check whether an active account already uses these details.
-    const existingUser = await User.findOne({
-      $or: [
-        { username: normalizedUsername },
-        { email: normalizedEmail },
-        { phone: normalizedPhone },
-      ],
+    // Field-by-field validation: the frontend shows each message under its input.
+    const errors = validateRegistration({
+      name: normalizedName,
+      username: normalizedUsername,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      password,
     });
 
-    if (existingUser) {
-      return res.status(409).json({
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({
         success: false,
-        message:
-          "An account already uses one or more of these details.",
+        message: "Please fix the highlighted fields.",
+        errors,
       });
     }
 
-    // Do not allow a different pending email to reserve the same
-    // username or phone number.
-    const conflictingPending = await PendingRegistration.findOne({
-      email: { $ne: normalizedEmail },
-      $or: [
-        { username: normalizedUsername },
-        { phone: normalizedPhone },
-      ],
+    // Which of these details are already used (accounts + other pending signups)?
+    const taken = await findTakenFields({
+      username: normalizedUsername,
+      email: normalizedEmail,
+      phone: normalizedPhone,
     });
 
-    if (conflictingPending) {
+    if (Object.keys(taken).length > 0) {
       return res.status(409).json({
         success: false,
-        message:
-          "An account registration already uses one or more of these details. Try again later.",
+        message: "Please fix the highlighted fields.",
+        errors: taken,
       });
     }
 
@@ -165,6 +235,7 @@ export async function register(req, res) {
       { email: normalizedEmail },
       {
         $set: {
+           name: normalizedName,
           username: normalizedUsername,
           email: normalizedEmail,
           phone: normalizedPhone,
@@ -330,6 +401,7 @@ export async function verifyOtp(req, res) {
     }
 
     const user = await User.create({
+      name: pending.name,
       username: pending.username,
       email: pending.email,
       phone: pending.phone,
@@ -474,7 +546,7 @@ export async function login(req, res) {
       });
     }
 
-    const identifier = username.trim();
+    const identifier = username.trim().toLowerCase();
     const keys = loginKeys(identifier, req.ip);
 
     // Too many wrong passwords: refuse before doing any work.
@@ -489,10 +561,10 @@ export async function login(req, res) {
       });
     }
 
-    const user = await User.findOne({
+      const user = await User.findOne({
       $or: [
         { username: identifier },
-        { email: identifier.toLowerCase() },
+        { email: identifier },
       ],
     }).select("+password");
 
@@ -815,7 +887,7 @@ export const updateProfile = async (req, res) => {
     const updates = {};
 
     if (username !== undefined) {
-      const cleanUsername = username.trim();
+      const cleanUsername = username.trim().toLowerCase();
 
       if (!cleanUsername) {
         return res.status(400).json({
@@ -828,6 +900,13 @@ export const updateProfile = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Username cannot exceed 30 characters",
+        });
+      }
+
+            if (/\s/.test(cleanUsername)) {
+        return res.status(400).json({
+          success: false,
+          message: "Username cannot contain spaces",
         });
       }
 

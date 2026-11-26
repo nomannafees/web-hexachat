@@ -143,7 +143,7 @@ export function AuthCardHeader({ title, subtitle, icon: Icon }) {
         {title}
       </h1>
       {subtitle && (
-        <p className="mt-2 text-[14.5px] leading-6 text-[color:var(--wa-text-secondary)]">
+        <p className="mt-2 text-[12px] font-semibold leading-6 text-[color:var(--wa-text-primary)]">
           {subtitle}
         </p>
       )}

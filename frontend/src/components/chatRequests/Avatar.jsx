@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { UserRound } from "lucide-react";
 
 export default function Avatar({ user, size = 49 }) {
+  const [failed, setFailed] = useState(false);
   const style = { width: size, height: size };
 
-  return user?.profilePicture ? (
+  return user?.profilePicture && !failed ? (
     <img
       src={user.profilePicture}
       alt=""
       style={style}
+      onError={() => setFailed(true)}
       className="shrink-0 rounded-full object-cover"
     />
   ) : (

@@ -15,7 +15,8 @@ import useTypingEmitter from "../../hooks/useTypingEmitter";
 import api from "../../../lib/api";
 import BlockDialog from "./BlockDialog";
 import BlockedBar from "./BlockedBar";
-
+import DropSendDialog from "./DropSendDialog";
+import useFileDrag from "../../hooks/useFileDrag";
 const DELETE_FOR_EVERYONE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function getCurrentUserId() {
@@ -56,6 +57,7 @@ export default function ChatWindow({
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [mediaSlides, setMediaSlides] = useState([]);
     const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+      const [dropOpen, setDropOpen] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
    // Side panels: group info or message search (switching chats closes them).
   const [infoChatId, setInfoChatId] = useState(null);
@@ -120,6 +122,10 @@ export default function ChatWindow({
     setLightboxIndex(-1);
         setBlockDialogOpen(false);
   }, [chatId]);
+
+    // Dragging files over the chat opens the "Drag files here" popup.
+  const openDrop = useCallback(() => setDropOpen(true), []);
+  useFileDrag(Boolean(chat) && !chat.blockedByMe && !chat.blockedByOther, openDrop);
 
   if (!chat) return <EmptyChat />;
 
@@ -357,6 +363,14 @@ export default function ChatWindow({
           />
         )}
       </div>
+            {dropOpen && (
+        <DropSendDialog
+          isSending={isSending}
+          uploadProgress={uploadProgress}
+          onSend={handleSendMessage}
+          onClose={() => setDropOpen(false)}
+        />
+      )}
       {blockDialogOpen && (
         <BlockDialog
           name={chat.name}

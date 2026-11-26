@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { SendHorizontal, Sparkles, Square, Trash2, X } from "lucide-react";
+import { SendHorizontal, Square, Trash2, X, Sparkles } from "lucide-react";
+import AssistantIcon from "./AssistantIcon";
 import useAssistant from "./useAssistant";
 
 const SUGGESTIONS = [
@@ -56,9 +57,9 @@ export default function AssistantWidget() {
         >
           {/* Header */}
           <header className="flex items-center gap-3 bg-[var(--wa-drawer-header-bg)] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-[color:var(--wa-drawer-header-fg)]">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-white/20">
-              <Sparkles size={18} />
-            </span>
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-white">
+  <AssistantIcon size={22} />
+</span>
             <div className="min-w-0 flex-1">
               <p className="text-[15px] font-semibold leading-tight">HexaBot</p>
               <p className="text-[12px] opacity-80">
@@ -95,7 +96,7 @@ export default function AssistantWidget() {
             {messages.length === 0 && (
               <div className="m-auto flex max-w-[280px] flex-col items-center text-center">
                 <span className="mb-3 grid h-14 w-14 place-items-center rounded-full bg-[var(--wa-chip-active-bg)] text-[color:var(--wa-accent)]">
-                  <Sparkles size={26} />
+                  <AssistantIcon size={32} />
                 </span>
                 <p className="text-[16px] font-semibold text-[color:var(--wa-text-primary)]">
                   Hi, I&apos;m HexaBot
@@ -207,7 +208,7 @@ export default function AssistantWidget() {
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? "Close assistant" : "Open HexaBot assistant"}
         aria-expanded={open}
-        className={`wa-shadow-float absolute right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-[var(--wa-fab-bg)] text-[color:var(--wa-fab-fg)] transition hover:bg-[var(--wa-fab-hover)] active:scale-95 bottom-[84px] max-sm:bottom-[calc(84px_+_env(safe-area-inset-bottom))] ${
+        className={`wa-shadow-float absolute right-5 z-30 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--wa-border)] bg-[var(--wa-menu-bg)] text-[color:var(--wa-text-primary)] transition hover:bg-[var(--wa-hover)] active:scale-95 bottom-[84px] max-sm:bottom-[calc(84px_+_env(safe-area-inset-bottom))] ${
           open ? "max-sm:hidden" : ""
         }`}
       >

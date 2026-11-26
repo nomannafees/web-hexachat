@@ -3,10 +3,19 @@ import mongoose from "mongoose";
 
 const pendingRegistrationSchema = new mongoose.Schema(
   {
+
+        name: {
+      type: String,
+      trim: true,
+      maxlength: 30,
+      default: "",
+    },
     username: {
       type: String,
       required: true,
+      lowercase: true,
       trim: true,
+      match: [/^\S+$/, "Username cannot contain spaces."],
       minlength: 3,
       maxlength: 30,
     },

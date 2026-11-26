@@ -16,11 +16,12 @@ const ZOOM_BTN =
 
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
-// Stops the picture from being dragged off-screen. When it is zoomed out smaller
-// than the window it stays centered.
-function limitCrop(crop, zoom, media, box) {
-  const maxX = Math.max(0, (media.width * zoom - box.w) / 2);
-  const maxY = Math.max(0, (media.height * zoom - box.h) / 2);
+// Keeps the picture where it makes sense, measured against the circle:
+// - bigger than the circle: it can't be dragged far enough to leave a gap inside it
+// - smaller than the circle (zoomed out): it can be moved around, but stays inside it
+function limitCrop(crop, zoom, media, circle) {
+  const maxX = Math.abs(media.width * zoom - circle) / 2;
+  const maxY = Math.abs(media.height * zoom - circle) / 2;
   return { x: clamp(crop.x, -maxX, maxX), y: clamp(crop.y, -maxY, maxY) };
 }
 
@@ -64,9 +65,9 @@ export default function CropModal({ src, onCancel, onConfirm, onUploadAnother })
   const coverZoom = media
     ? Math.max(1, box.w / media.width, box.h / media.height)
     : 1;
-  // Zoom-out limit: the whole picture fits inside the window
+  // Zoom-out limit: the WHOLE picture, even its corners, fits inside the circle
   const minZoom = media
-    ? Math.min(1, box.w / media.width, box.h / media.height)
+    ? Math.min(1, circle / Math.hypot(media.width, media.height))
     : 1;
   const maxZoom = coverZoom * ZOOM_RANGE;
 
@@ -88,10 +89,10 @@ export default function CropModal({ src, onCancel, onConfirm, onUploadAnother })
   useLayoutEffect(() => {
     if (!media) return;
     setCrop((c) => {
-      const next = limitCrop(c, zoom, media, box);
+      const next = limitCrop(c, zoom, media, circle);
       return next.x === c.x && next.y === c.y ? c : next;
     });
-  }, [crop, zoom, media, box]);
+  }, [crop, zoom, media, circle]);
 
   const zoomBy = (factor) => setZoom((z) => clamp(z * factor, minZoom, maxZoom));
 

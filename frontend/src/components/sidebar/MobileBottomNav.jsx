@@ -2,12 +2,13 @@ import { NavLink } from "react-router-dom";
 import { Phone } from "lucide-react";
 import { ChatFilledIcon, CommunitiesIcon, StatusIcon } from "../layout/NavigationRail";
 import { useNavCounts } from "../../context/NavCountsContext";
-
+import AssistantIcon from "../assistant/AssistantIcon";
 
 const ITEMS = [
   { to: "/app", label: "Chats", end: true, icon: ChatFilledIcon, key: "chats" },
   { to: "/app/status", label: "Updates", icon: StatusIcon },
-  { to: "/communities", label: "Communities", icon: CommunitiesIcon, key: "groups" },
+    { to: "/app/groups", label: "Groups", icon: CommunitiesIcon, key: "groups" },
+  { to: "/app/assistant", label: "Assistant", icon: AssistantIcon },
   { to: "/app/calls", label: "Calls", icon: Phone, key: "calls" },
 ];
 

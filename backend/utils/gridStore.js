@@ -43,6 +43,15 @@ function pipeInto(source, filename, contentType) {
 export const putFile = (filePath, filename, contentType) =>
   pipeInto(fs.createReadStream(filePath), filename, contentType);
 
+// In-memory buffer -> MongoDB (used for profile pictures and group photos).
+export function putBuffer(buffer, filename, contentType) {
+  return new Promise((resolve, reject) => {
+    const up = bucket().openUploadStream(filename, { contentType });
+    up.on("error", reject).on("finish", () => resolve(`${GRIDFS_PREFIX}${up.id}`));
+    up.end(buffer);
+  });
+}
+
 // Used when forwarding: make an independent copy.
 export const duplicateFile = (key, filename, contentType) =>
   pipeInto(bucket().openDownloadStream(idOf(key)), filename, contentType);
