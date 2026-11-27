@@ -17,8 +17,15 @@ function read() {
 }
 
 function apply(id) {
-  if (typeof document !== "undefined") {
-    document.documentElement.setAttribute("data-theme", id);
+  if (typeof document === "undefined") return;
+
+  document.documentElement.setAttribute("data-theme", id);
+
+  const bar = THEMES.find((theme) => theme.id === id)?.bar;
+  if (bar) {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", bar);
   }
 }
 

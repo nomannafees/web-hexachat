@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmojiPicker from "emoji-picker-react";
-import { Reply, Copy, Download, Smile, Forward, Pencil, Star, StarOff, Trash2 } from "lucide-react";
+import { Reply, Copy, Download, Smile, Forward, Pencil, Star, StarOff, Trash2, CheckSquare } from "lucide-react";
 import ReactionBar from "./ReactionBar";
 import ContextMenuItem from "./ContextMenuItem";
 import useTheme from "../../theme/useTheme";
@@ -28,7 +28,7 @@ export default function MessageContextMenu({
   onDownload,
   onForward,
   onStar,
-  onDelete,
+  onDelete, onSelect
 }) {
   const containerRef = useRef(null);
   const [view, setView] = useState("menu"); // "menu" | "picker"
@@ -184,7 +184,9 @@ export default function MessageContextMenu({
                   onClick={onStar}
                 />
               )}
-
+              {!isDeleted && onSelect && (
+                <ContextMenuItem icon={CheckSquare} label="Select" onClick={onSelect} />
+              )}
               {!isDeleted && <div className="my-1 h-px bg-[var(--wa-menu-divider)]" />}
 
               <ContextMenuItem icon={Trash2} label="Delete" onClick={onDelete} danger />

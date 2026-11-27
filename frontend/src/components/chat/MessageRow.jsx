@@ -19,19 +19,21 @@ export default function MessageRow({
   className = "",
   onOpenMenu,
   onJumpToMessage,
-  onMediaClick,
+  onMediaClick, selected = false, selecting = false, onToggleSelect,
 }) {
   const isMe = message.sender === "me";
   const pressTimer = useRef(null);
 
   useEffect(() => () => clearTimeout(pressTimer.current), []);
 
-  function handleContextMenu(event) {
+function handleContextMenu(event) {
     event.preventDefault();
+    if (selecting) return;
     onOpenMenu(message, { x: event.clientX, y: event.clientY });
   }
 
   function handleTouchStart(event) {
+    if (selecting) return;
     const { clientX, clientY } = event.touches[0];
 
     pressTimer.current = setTimeout(() => {
@@ -59,17 +61,23 @@ export default function MessageRow({
   );
 
   return (
-    <div
+     <div
       id={`message-${message.id}`}
+      onClick={selecting ? () => onToggleSelect(message.id) : undefined}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={cancelPress}
       onTouchMove={cancelPress}
       onTouchCancel={cancelPress}
-      className={`group rounded-lg transition-colors duration-700 ${
-        highlighted ? "bg-[var(--wa-row-flash)]" : ""
+      className={`group -mx-[4.3478%] px-[4.3478%] transition-colors duration-300 sm:-mx-[8.1395%] sm:px-[8.1395%] ${
+        selecting ? "cursor-pointer select-none" : ""
+      } ${
+        selected ? "bg-[var(--wa-row-selected)]" : highlighted ? "bg-[var(--wa-row-flash)]" : ""
       } ${className}`}
     >
+
+      <div className={selecting ? "pointer-events-none" : ""}> 
+
       {message.deletedForEveryone ? (
         <div className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}>
           <div
@@ -105,6 +113,7 @@ export default function MessageRow({
           />
         </>
       )}
+      </div>
     </div>
   );
 }

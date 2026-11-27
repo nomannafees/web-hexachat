@@ -13,7 +13,7 @@ export default function MessageList({
     hasMore = false,
   isLoadingOlder = false,
   olderFailed = false,
-  onLoadOlder,
+  onLoadOlder, selectedIds = [], selecting = false, onToggleSelect
 }) {
   const bottomRef = useRef(null);
     const scrollRef = useRef(null);
@@ -190,6 +190,9 @@ if (message.type === "call") {
               onOpenMenu={onOpenMenu}
               onJumpToMessage={handleJumpToMessage}
               onMediaClick={onMediaClick}
+              selected={selectedIds.includes(message.id)}
+              selecting={selecting}
+              onToggleSelect={onToggleSelect}
             />
           );
         })}

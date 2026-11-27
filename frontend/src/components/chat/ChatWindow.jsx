@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
-
+import SelectionBar from "./SelectionBar";
 import EmptyChat from "./EmptyChat";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
@@ -53,6 +53,8 @@ export default function ChatWindow({
   const [isForwarding, setIsForwarding] = useState(false);
   const [forwardError, setForwardError] = useState("");
   const [deletingMessage, setDeletingMessage] = useState(null);
+    const [selectedIds, setSelectedIds] = useState([]);
+  const selecting = selectedIds.length > 0;
   const [isDeleting, setIsDeleting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [mediaSlides, setMediaSlides] = useState([]);
@@ -126,6 +128,14 @@ export default function ChatWindow({
     // Dragging files over the chat opens the "Drag files here" popup.
   const openDrop = useCallback(() => setDropOpen(true), []);
   useFileDrag(Boolean(chat) && !chat.blockedByMe && !chat.blockedByOther, openDrop);
+
+    // Escape leaves selection mode.
+  useEffect(() => {
+    if (selectedIds.length === 0) return undefined;
+    const onKey = (event) => event.key === "Escape" && setSelectedIds([]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIds.length]);
 
   if (!chat) return <EmptyChat />;
 
@@ -239,55 +249,111 @@ export default function ChatWindow({
     }
   };
 
+    const selectedMessages = messages.filter((m) => selectedIds.includes(m.id));
+  const actionable = selectedMessages.filter((m) => !m.deletedForEveryone);
+  const allStarred = actionable.length > 0 && actionable.every((m) => m.starred);
+
+  const toggleSelect = (id) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const handleBulkStar = async () => {
+    const targets = actionable.filter((m) => Boolean(m.starred) === allStarred);
+    const results = await Promise.allSettled(
+      targets.map((m) => api.post(`/conversations/${chatId}/messages/${m.id}/star`))
+    );
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        updateMessage(targets[i].id, (m) => ({ ...m, starred: !allStarred }));
+      }
+    });
+    showNotice(allStarred ? "Star removed" : "Messages starred");
+    setSelectedIds([]);
+  };
+
+  const handleBulkCopy = () => {
+    const text = actionable.filter((m) => m.text).map((m) => m.text).join("\n");
+    if (text) copy(text);
+    setSelectedIds([]);
+  };
+  
+
+  const canEveryone = (m) =>
+    m.sender === "me" &&
+    !m.deletedForEveryone &&
+    Date.now() - new Date(m.createdAt).getTime() < DELETE_FOR_EVERYONE_WINDOW_MS;
+
+  const deleteTargets = deletingMessage?.bulk
+    ? selectedMessages
+    : deletingMessage
+      ? [deletingMessage]
+      : [];
+  const canDeleteForEveryone = deleteTargets.length > 0 && deleteTargets.every(canEveryone);
+
   const handleDeleteMessage = async (scope) => {
-    if (!deletingMessage) return;
+    if (deleteTargets.length === 0) return;
     setIsDeleting(true);
-    try {
-      await api.delete(`/conversations/${chatId}/messages/${deletingMessage.id}`, { params: { scope } });
-      if (scope === "everyone") {
-  updateMessage(deletingMessage.id, (m) => ({
-    ...m,
-    text: "",
-    attachments: [],
-    reactions: [],
-    forwarded: false,
-    starred: false,
-    replyTo: null,
-    deletedForEveryone: true,
-  }));
-} else {
-  setMessages((prev) => prev.filter((m) => m.id !== deletingMessage.id));
-}
-      setDeletingMessage(null);
-    } catch (err) {
-      showNotice(err.response?.data?.message || "Failed to delete message");
-    } finally {
-      setIsDeleting(false);
+    const failed = [];
+
+    for (const msg of deleteTargets) {
+      try {
+        await api.delete(`/conversations/${chatId}/messages/${msg.id}`, { params: { scope } });
+        if (scope === "everyone") {
+          updateMessage(msg.id, (m) => ({
+            ...m,
+            text: "",
+            attachments: [],
+            reactions: [],
+            forwarded: false,
+            starred: false,
+            replyTo: null,
+            deletedForEveryone: true,
+          }));
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        }
+      } catch {
+        failed.push(msg.id);
+      }
     }
+
+    if (deletingMessage?.bulk) setSelectedIds(failed);
+    setDeletingMessage(null);
+    setIsDeleting(false);
+    if (failed.length) showNotice(`${failed.length} message(s) couldn't be deleted`);
   };
 
   const menuMessage = menu ? messages.find((m) => m.id === menu.message.id) : null;
-  const canDeleteForEveryone =
-    deletingMessage?.sender === "me" &&
-    !deletingMessage.deletedForEveryone &&
-    Date.now() - new Date(deletingMessage.createdAt).getTime() < DELETE_FOR_EVERYONE_WINDOW_MS;
 
   return (
      
     <div className="relative flex h-full min-h-0 w-full min-w-0">
     <section className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-[var(--wa-chat-bg)]">
       <div className="wa-wallpaper" aria-hidden="true" />
-      <ChatHeader
-        chat={chat}
-        onBack={onBack}
-        onStartCall={onStartCall}
-                onOpenInfo={chat.type === "group" ? openInfo : undefined}
-        onOpenSearch={openSearch}
-        searchActive={searchOpen}
-                onBlock={() => setBlockDialogOpen(true)}
-                        typingText={typingText}
-        onUnblock={handleUnblock}
-      />
+           {selecting ? (
+        <SelectionBar
+          count={selectedIds.length}
+          allStarred={allStarred}
+          canCopy={actionable.some((m) => m.text)}
+          canForward={actionable.length > 0}
+          onClose={() => setSelectedIds([])}
+          onStar={handleBulkStar}
+          onCopy={handleBulkCopy}
+          onForward={() => setForwardingMessage({ bulk: true })}
+          onDelete={() => setDeletingMessage({ bulk: true })}
+        />
+      ) : (
+        <ChatHeader
+          chat={chat}
+          onBack={onBack}
+          onStartCall={onStartCall}
+          onOpenInfo={chat.type === "group" ? openInfo : undefined}
+          onOpenSearch={openSearch}
+          searchActive={searchOpen}
+          onBlock={() => setBlockDialogOpen(true)}
+          typingText={typingText}
+          onUnblock={handleUnblock}
+        />
+      )}
 
       {/* Message List Area */}
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -316,13 +382,16 @@ export default function ChatWindow({
             isHistory={isHistory}
             jumpTarget={jumpTarget}
             highlight={searchQuery}
-                        hasMore={hasMore}
+            hasMore={hasMore}
             isLoadingOlder={isLoadingOlder}
             olderFailed={olderFailed}
             onLoadOlder={loadOlder}
             onOpenMenu={(msg, pos) => setMenu({ message: msg, ...pos })}
             onMediaClick={handleMediaClick}
             onAttachmentDelete={deleteSingleAttachment}
+                        selectedIds={selectedIds}
+            selecting={selecting}
+            onToggleSelect={toggleSelect}
           />
         )}
       </div>
@@ -386,13 +455,16 @@ export default function ChatWindow({
         menuMessage={menuMessage}
         currentUserId={currentUserId}
         onCloseMenu={() => setMenu(null)}
+        onSelect={(msg) => { setMenu(null);
+        setSelectedIds([msg.id]); }}
         onReact={react}
         onReply={(msg) => {
-          setMenu(null);
-                    setEditingMessage(null);
-          setReplyingTo(msg);
+        setMenu(null);
+        setEditingMessage(null);
+        setReplyingTo(msg);
+        
         }}
-                onEdit={handleEditOpen}
+        onEdit={handleEditOpen}
         onCopy={copy}
         onDownload={download}
         onForwardOpen={(msg) => {
@@ -409,12 +481,19 @@ export default function ChatWindow({
         isForwarding={isForwarding}
         forwardError={forwardError}
         onCloseForward={() => setForwardingMessage(null)}
-        onForward={async (ids) => {
+               onForward={async (ids) => {
           setIsForwarding(true);
+          setForwardError("");
+          const targets = forwardingMessage.bulk
+            ? actionable
+            : [forwardingMessage];
           try {
-            await api.post(`/conversations/${chatId}/messages/${forwardingMessage.id}/forward`, {
-              conversationIds: ids,
-            });
+            for (const m of targets) {
+              await api.post(`/conversations/${chatId}/messages/${m.id}/forward`, {
+                conversationIds: ids,
+              });
+            }
+            if (forwardingMessage.bulk) setSelectedIds([]);
             setForwardingMessage(null);
             showNotice("Forwarded");
           } catch (err) {

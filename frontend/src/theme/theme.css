@@ -172,7 +172,7 @@
   --wa-chat-title: var(--c-text);
   --wa-chat-subtitle: var(--c-text-soft);
   --wa-row-flash: color-mix(in srgb, var(--c-brand) 25%, transparent);
-
+  --wa-row-selected: color-mix(in srgb, #1daa61 28%, transparent);
   /* Bubbles */
   --wa-bubble-out-bg: var(--c-bubble-out);
   --wa-bubble-in-bg: var(--c-bubble-in);

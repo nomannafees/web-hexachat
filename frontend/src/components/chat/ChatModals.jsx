@@ -23,7 +23,7 @@ export default function ChatModals({
   onDownload,
   onForwardOpen,
   onStar,
-  onDeleteOpen,
+  onDeleteOpen, onSelect,
   forwardingMessage,
   chats,
   isForwarding,
@@ -54,11 +54,12 @@ export default function ChatModals({
           onReact={(emoji) => onReact(menuMessage, emoji)}
           onReply={() => onReply(menuMessage)}
           onCopy={() => onCopy(menuMessage.text)}
-                    onEdit={() => onEdit(menuMessage)}
+          onEdit={() => onEdit(menuMessage)}
           onDownload={() => onDownload(menuMessage.attachments)}
           onForward={() => onForwardOpen(menuMessage)}
           onStar={() => onStar(menuMessage)}
           onDelete={() => onDeleteOpen(menuMessage)}
+          onSelect={() => onSelect(menuMessage)}
         />
       )}
 
